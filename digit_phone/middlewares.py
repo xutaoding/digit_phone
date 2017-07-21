@@ -4,12 +4,16 @@
 #
 # See documentation in:
 # http://doc.scrapy.org/en/latest/topics/spider-middleware.html
+# tornado==4.5.1
 
 from datetime import datetime
 from scrapy import signals
 from scrapy.http.response.text import TextResponse
 import scrapy.downloadermiddlewares.httpcache
 from selenium import webdriver
+
+from tornado.web import asynchronous
+from tornado.gen import coroutine
 
 
 class DigitPhoneSpiderMiddleware(object):
@@ -76,22 +80,31 @@ class DigitPhoneDownloaderMiddleware(object):
 
         print 'start driver:', datetime.now()
         self.driver = webdriver.Remote(
-            command_executor='http://192.168.216.168:4444/wd/hub',
+            command_executor='http://192.168.76.133:4444/wd/hub',
             desired_capabilities=desired_capabilities
         )
         self.driver.set_page_load_timeout(60)
+
+        print self.driver, id(self.driver)
 
     def spider_closed(self, spider):
         self.driver.quit()
         print 'close driver:', datetime.now()
 
+    # @asynchronous
+    # @coroutine
+    def fetch_dynamic_html(self, url):
+        print 'Now use selenium grid:', datetime.now(), id(self.driver)
+
+        self.driver.get(url)
+        html = self.driver.page_source
+        return html
+
     def process_request(self, request, spider):
         # 但是这样不能保持并发， 只能一个一个url， 如何改进
         if spider.name == 'suning_phone' and request.meta.get('use_selenium'):
-            print 'Now use selenium grid:', datetime.now(), id(self.driver)
 
-            self.driver.get(request.url)
-            html = self.driver.page_source
+            html = self.fetch_dynamic_html(request.url)
 
             return TextResponse(request.url, encoding='utf-8', body=html, request=request)
 
